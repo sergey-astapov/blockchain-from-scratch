@@ -2,7 +2,6 @@
 //! The atm may fail to give you cash if it is empty or you haven't swiped your card, or you have
 //! entered the wrong pin.
 
-use std::collections::HashSet;
 use Action::*;
 use Auth::*;
 use Key::*;

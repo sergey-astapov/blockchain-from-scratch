@@ -25,12 +25,24 @@ pub struct Header {
 impl Header {
     /// Returns a new valid genesis header.
     fn genesis() -> Self {
-        todo!("Exercise 1")
+        Header {
+            parent: 0,
+            height: 0,
+            extrinsics_root: (),
+            state_root: (),
+            consensus_digest: (),
+        }
     }
 
     /// Create and return a valid child header.
     fn child(&self) -> Self {
-        todo!("Exercise 2")
+        Self {
+            parent: hash(self),
+            height: self.height + 1,
+            extrinsics_root: (),
+            state_root: (),
+            consensus_digest: (),
+        }
     }
 
     /// Verify that all the given headers form a valid chain from this header to the tip.
@@ -38,7 +50,18 @@ impl Header {
     /// This method may assume that the block on which it is called is valid, but it
     /// must verify all of the blocks in the slice;
     fn verify_sub_chain(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 3")
+        let genesis = Self::genesis();
+        let mut h: Hash = hash(&genesis);
+        for (i, block) in chain.iter().enumerate() {
+            if block.parent != h {
+                return false
+            }
+            if block.height != i as u64 + 1 {
+                return false;
+            }
+            h = hash(block)
+        }
+        return true;
     }
 }
 
@@ -46,14 +69,26 @@ impl Header {
 
 /// Build and return a valid chain with exactly five blocks including the genesis block.
 fn build_valid_chain_length_5() -> Vec<Header> {
-    todo!("Exercise 4")
+    (1..5)
+        .into_iter()
+        .fold(vec![Header::genesis()], |mut acc, _| {
+            let block = acc.last().unwrap().child();
+            acc.push(block);
+            acc
+        })
 }
 
 /// Build and return a chain with at least three headers.
 /// The chain should start with a proper genesis header,
 /// but the entire chain should NOT be valid.
 fn build_an_invalid_chain() -> Vec<Header> {
-    todo!("Exercise 5")
+    (1..4).into_iter()
+        .fold(vec![Header::genesis()], |mut acc, _| {
+            let mut block = acc.last().unwrap().child();
+            block.height += 1;
+            acc.push(block);
+            acc
+        })
 }
 
 // To run these tests: `cargo test bc_1
@@ -96,7 +131,8 @@ fn bc_1_verify_three_blocks() {
     let b1 = g.child();
     let b2 = b1.child();
 
-    assert!(g.verify_sub_chain(&[b1, b2]));
+    let res = g.verify_sub_chain(&[b1, b2]);
+    assert!(res);
 }
 
 #[test]
