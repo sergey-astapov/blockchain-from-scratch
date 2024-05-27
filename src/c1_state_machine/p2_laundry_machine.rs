@@ -2,6 +2,8 @@
 //! ready to be worn again. Or course washing and wearing clothes takes its toll on the clothes, and
 //! eventually they get tattered.
 
+use ClothesAction::*;
+use ClothesState::*;
 use super::StateMachine;
 
 /// This state machine models the typical life cycle of clothes as they make their way through the laundry
@@ -23,7 +25,19 @@ pub enum ClothesState {
     Tattered,
 }
 
+impl ClothesState {
+    pub fn get_life_time(&self) -> Option<u64> {
+        match self {
+            Clean(x) => Some(*x),
+            Dirty(x) => Some(*x),
+            Wet(x) => Some(*x),
+            Tattered => None
+        }
+    }
+}
+
 /// Something you can do with clothes
+#[derive(Debug)]
 pub enum ClothesAction {
     /// Wearing clothes decreases their life by 1 and makes them dirty.
     Wear,
@@ -40,14 +54,37 @@ impl StateMachine for ClothesMachine {
     type Transition = ClothesAction;
 
     fn next_state(starting_state: &ClothesState, t: &ClothesAction) -> ClothesState {
-        todo!("Exercise 3")
+        if *starting_state == Tattered {
+            return Tattered
+        }
+
+        let lt = starting_state.get_life_time();
+        if lt == None || lt == Some(1) {
+            return Tattered
+        }
+
+        match (t, starting_state) {
+            (Wear, Clean(x)) => Dirty(x - 1),
+            (Wash, Clean(x)) => Wet(x - 1),
+            (Dry, Clean(x)) => Clean(x - 1),
+            (Wear, Dirty(x)) => Dirty(x - 1),
+            (Wash, Dirty(x)) => Wet(x - 1),
+            (Dry, Dirty(x)) => Dirty(x - 1),
+            (Wear, Wet(x)) => Dirty(x - 1),
+            (Wash, Wet(x)) => Wet(x - 1),
+            (Dry, Wet(x)) => Clean(x - 1),
+            (act, st) => {
+                assert!(false, "Wrong: {:?} {:?}", act, st);
+                Tattered
+            }
+        }
     }
 }
 
 #[test]
 fn sm_2_wear_clean_clothes() {
     let start = ClothesState::Clean(4);
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Dirty(3);
     assert_eq!(end, expected);
 }
@@ -55,7 +92,7 @@ fn sm_2_wear_clean_clothes() {
 #[test]
 fn sm_2_wear_dirty_clothes() {
     let start = ClothesState::Dirty(4);
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Dirty(3);
     assert_eq!(end, expected);
 }
@@ -63,7 +100,7 @@ fn sm_2_wear_dirty_clothes() {
 #[test]
 fn sm_2_wear_wet_clothes() {
     let start = ClothesState::Wet(4);
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Dirty(3);
     assert_eq!(end, expected);
 }
@@ -71,7 +108,7 @@ fn sm_2_wear_wet_clothes() {
 #[test]
 fn sm_2_wear_tattered_clothes() {
     let start = ClothesState::Tattered;
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Tattered;
     assert_eq!(end, expected);
 }
@@ -79,7 +116,7 @@ fn sm_2_wear_tattered_clothes() {
 #[test]
 fn sm_2_wear_clean_until_tattered() {
     let start = ClothesState::Clean(1);
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Tattered;
     assert_eq!(end, expected);
 }
@@ -87,7 +124,7 @@ fn sm_2_wear_clean_until_tattered() {
 #[test]
 fn sm_2_wear_wet_until_tattered() {
     let start = ClothesState::Wet(1);
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Tattered;
     assert_eq!(end, expected);
 }
@@ -95,7 +132,7 @@ fn sm_2_wear_wet_until_tattered() {
 #[test]
 fn sm_2_wear_dirty_until_tattered() {
     let start = ClothesState::Dirty(1);
-    let end = ClothesMachine::next_state(&start, &ClothesAction::Wear);
+    let end = ClothesMachine::next_state(&start, &Wear);
     let expected = ClothesState::Tattered;
     assert_eq!(end, expected);
 }
