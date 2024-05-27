@@ -2,6 +2,10 @@
 //! The atm may fail to give you cash if it is empty or you haven't swiped your card, or you have
 //! entered the wrong pin.
 
+use std::collections::HashSet;
+use Action::*;
+use Auth::*;
+use Key::*;
 use super::StateMachine;
 
 /// The keys on the ATM keypad
@@ -12,6 +16,15 @@ pub enum Key {
     Three,
     Four,
     Enter,
+}
+
+impl Key {
+    pub fn is_number(&self) -> bool {
+        match self {
+            Enter => false,
+            _ => true
+        }
+    }
 }
 
 /// Something you can do to the ATM
@@ -58,7 +71,34 @@ impl StateMachine for Atm {
     type Transition = Action;
 
     fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 4")
+        let Atm { cash_inside, expected_pin_hash, keystroke_register } = starting_state;
+        match (*cash_inside, expected_pin_hash.clone(), keystroke_register.clone(), t) {
+            ( _, Waiting, _, SwipeCard(x)) => Atm {
+                cash_inside: 0,
+                expected_pin_hash: Authenticating(x.clone()),
+                keystroke_register: vec![],
+            },
+            ( _, Authenticating(_), _, PressKey(Enter)) => Atm {
+                cash_inside: 0,
+                expected_pin_hash: Authenticated,
+                keystroke_register: vec![],
+            },
+            (_, Authenticated, _, PressKey(x)) if x.is_number() => Atm {
+                cash_inside: 0,
+                expected_pin_hash: Waiting,
+                keystroke_register: vec![],
+            },
+            (_, Authenticated, _, PressKey(Enter)) => Atm {
+                cash_inside: 0,
+                expected_pin_hash: Waiting,
+                keystroke_register: vec![],
+            },
+            _ => Atm {
+                cash_inside: 0,
+                expected_pin_hash: Waiting,
+                keystroke_register: vec![],
+            }
+        }
     }
 }
 
@@ -117,7 +157,7 @@ fn sm_3_press_key_before_card_swipe() {
         expected_pin_hash: Auth::Waiting,
         keystroke_register: Vec::new(),
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::One));
+    let end = Atm::next_state(&start, &PressKey(Key::One));
     let expected = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Waiting,
@@ -134,7 +174,7 @@ fn sm_3_enter_single_digit_of_pin() {
         expected_pin_hash: Auth::Authenticating(1234),
         keystroke_register: Vec::new(),
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::One));
+    let end = Atm::next_state(&start, &PressKey(Key::One));
     let expected = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Authenticating(1234),
@@ -148,7 +188,7 @@ fn sm_3_enter_single_digit_of_pin() {
         expected_pin_hash: Auth::Authenticating(1234),
         keystroke_register: vec![Key::One],
     };
-    let end1 = Atm::next_state(&start, &Action::PressKey(Key::Two));
+    let end1 = Atm::next_state(&start, &PressKey(Key::Two));
     let expected1 = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Authenticating(1234),
@@ -169,7 +209,7 @@ fn sm_3_enter_wrong_pin() {
         expected_pin_hash: Auth::Authenticating(pin_hash),
         keystroke_register: vec![Key::Three, Key::Three, Key::Three, Key::Three],
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::Enter));
+    let end = Atm::next_state(&start, &PressKey(Enter));
     let expected = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Waiting,
@@ -190,7 +230,7 @@ fn sm_3_enter_correct_pin() {
         expected_pin_hash: Auth::Authenticating(pin_hash),
         keystroke_register: vec![Key::One, Key::Two, Key::Three, Key::Four],
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::Enter));
+    let end = Atm::next_state(&start, &PressKey(Enter));
     let expected = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Authenticated,
@@ -207,7 +247,7 @@ fn sm_3_enter_single_digit_of_withdraw_amount() {
         expected_pin_hash: Auth::Authenticated,
         keystroke_register: Vec::new(),
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::One));
+    let end = Atm::next_state(&start, &PressKey(Key::One));
     let expected = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Authenticated,
@@ -221,7 +261,7 @@ fn sm_3_enter_single_digit_of_withdraw_amount() {
         expected_pin_hash: Auth::Authenticated,
         keystroke_register: vec![Key::One],
     };
-    let end1 = Atm::next_state(&start, &Action::PressKey(Key::Four));
+    let end1 = Atm::next_state(&start, &PressKey(Key::Four));
     let expected1 = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Authenticated,
@@ -238,7 +278,7 @@ fn sm_3_try_to_withdraw_too_much() {
         expected_pin_hash: Auth::Authenticated,
         keystroke_register: vec![Key::One, Key::Four],
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::Enter));
+    let end = Atm::next_state(&start, &PressKey(Enter));
     let expected = Atm {
         cash_inside: 10,
         expected_pin_hash: Auth::Waiting,
@@ -255,7 +295,7 @@ fn sm_3_withdraw_acceptable_amount() {
         expected_pin_hash: Auth::Authenticated,
         keystroke_register: vec![Key::One],
     };
-    let end = Atm::next_state(&start, &Action::PressKey(Key::Enter));
+    let end = Atm::next_state(&start, &PressKey(Enter));
     let expected = Atm {
         cash_inside: 9,
         expected_pin_hash: Auth::Waiting,
