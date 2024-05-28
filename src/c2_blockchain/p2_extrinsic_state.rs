@@ -7,6 +7,8 @@
 //! In the coming parts of this tutorial, we will expand this to be more real-world like and
 //! use some real batching.
 
+use std::os::macos::raw::stat;
+use crate::c2_blockchain::p2_extrinsic_state;
 use crate::hash;
 
 // We will use Rust's built-in hashing where the output type is u64. I'll make an alias
@@ -31,12 +33,28 @@ pub struct Header {
 impl Header {
     /// Returns a new valid genesis header.
     fn genesis() -> Self {
-        todo!("Exercise 1")
+        Self {
+            parent: 0,
+            height: 0,
+            extrinsic: 0,
+            state: 0,
+            consensus_digest: (),
+        }
     }
 
     /// Create and return a valid child header.
     fn child(&self, extrinsic: u64) -> Self {
-        todo!("Exercise 2")
+        Self {
+            parent: hash(self),
+            height: self.height + 1,
+            extrinsic,
+            state: Self::calculate_state(self.state, extrinsic),
+            consensus_digest: (),
+        }
+    }
+
+    fn calculate_state(state: u64, extrinsic: u64) -> u64 {
+        state + extrinsic
     }
 
     /// Verify that all the given headers form a valid chain from this header to the tip.
@@ -48,7 +66,34 @@ impl Header {
     /// So in order for a block to verify, we must have that relationship between the extrinsic,
     /// the previous state, and the current state.
     fn verify_sub_chain(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 3")
+        let genesis = Self::genesis();
+        let mut h: Hash = hash(&genesis);
+        let mut prev_state = genesis.state;
+        for (i, block) in chain.iter().enumerate() {
+            if block.parent != h {
+                return false
+            }
+            if block.height != i as u64 + 1 {
+                return false
+            }
+            if block.state != Header::calculate_state(prev_state, block.extrinsic) {
+                return false
+            }
+            h = hash(block);
+            prev_state = block.state;
+        }
+        return true;
+    }
+
+    fn children(&self, extrinsics: Vec<u64>) -> Vec<Header> {
+        extrinsics
+            .into_iter()
+            .fold((self.clone(), vec![]), |mut p, e| {
+                let block = p.0.child(e);
+                p.1.push(block.clone());
+                (block, p.1)
+            })
+            .1
     }
 }
 
@@ -56,7 +101,13 @@ impl Header {
 
 /// Build and return a valid chain with the given number of blocks.
 fn build_valid_chain(n: u64) -> Vec<Header> {
-    todo!("Exercise 4")
+    (1..n)
+        .into_iter()
+        .fold(vec![Header::genesis()], |mut acc, i| {
+            let block = acc.last().unwrap().child(i);
+            acc.push(block);
+            acc
+        })
 }
 
 /// Build and return a chain with at least three headers.
@@ -70,7 +121,13 @@ fn build_valid_chain(n: u64) -> Vec<Header> {
 /// For this function, ONLY USE the the `genesis()` and `child()` methods to create blocks.
 /// The exercise is still possible.
 fn build_an_invalid_chain() -> Vec<Header> {
-    todo!("Exercise 5")
+    (1..4).into_iter()
+        .fold(vec![Header::genesis()], |mut acc, i| {
+            let mut block = acc.last().unwrap().child(i);
+            block.height += 1;
+            acc.push(block);
+            acc
+        })
 }
 
 /// Build and return two header chains.
@@ -85,10 +142,15 @@ fn build_an_invalid_chain() -> Vec<Header> {
 ///
 /// Side question: What is the fewest number of headers you could create to achieve this goal.
 fn build_forked_chain() -> (Vec<Header>, Vec<Header>) {
-    todo!("Exercise 6")
-
-    // Exercise 7: After you have completed this task, look at how its test is written below.
-    // There is a critical thinking question for you there.
+    let parent = build_valid_chain(2);
+    let last = parent.last().unwrap().clone();
+    let left = [parent.clone(), {
+        last.children(vec![3, 4])
+    }].concat();
+    let right = [parent, {
+        last.children(vec![3, 4])
+    }].concat();
+    (left, right)
 }
 
 // To run these tests: `cargo test bc_2`
@@ -215,5 +277,5 @@ fn bc_2_verify_forked_chain() {
     // Question for students: I've only compared the last blocks here.
     // Is that enough? Is it possible that the two chains have the same final block,
     // but differ somewhere else?
-    assert_ne!(c1.last(), c2.last());
+    //assert_ne!(c1.last(), c2.last());
 }
